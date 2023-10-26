@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stm32f4xx.h"
+#define ARM_MATH_CM4
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,51 +41,77 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
-
+int u;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
+void GPIO_Init(void);
+void ADC1_Init(void);
+void TIM2_Init(void);
+void TIM4_ms_Delay(uint32_t delay);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void GPIO_Init(){
+    //PC0 is connected to ADC1 IN10
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;// Enable GPIOC clock
+    GPIOC->MODER |= GPIO_MODER_MODER0; // Set PC0 to Analog mode
 
+    RCC->AHB1ENR |= 1; //Enable GPIOA clock
+    GPIOA->AFR[0] |= 0x00100000; // Select the PA5 pin in alternate function mode
+    GPIOA->MODER |= 0x00000800; //Set the PA5 pin alternate function
+}
+void ADC1_Init(){
+    RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;//Enable ADC clock
+    //APB2 clock is not divided so it runs at 16MHz
+    ADC->CCR |= 0<<16; // PCLK2 divide by 2, so the clock frequency is 8MHz
+    ADC1->CR2 |= ADC_CR2_CONT; // Setting the Continuous Conversion Mode
+    ADC1->CR2 |= ADC_CR2_ADON; // Enabling the ADC
+    ADC1->CR2 &= ~ADC_CR2_ALIGN; //setting the alignment to the right
+    ADC1->CR1 &= ~ADC_CR1_RES; // Selecting 12-bit resolution
+    ADC1->SMPR1 |= (ADC_SMPR2_SMP0_0 | ADC_SMPR2_SMP0_2); // 112 Sampling cycle selection
+    ADC1->SQR3 |= 10<<0; // Selecting channel 10
+}
+void TIM2_Init(){
+    RCC->APB1ENR |=1;
+    TIM2->PSC = 16-1; //Setting the clock frequency to 1MHz.
+    TIM2->ARR = 20000; // Total period of the timer
+    TIM2->CNT = 0;
+    TIM2->CCMR1 = 0x0060; //PWM mode for the timer
+    TIM2->CCER |= 1; //Enable channel 1 as output
+    TIM2->CCR1 = 5000; // Pulse width for PWM
+}
+void TIM4_ms_Delay(uint32_t delay){
+    RCC->APB1ENR |= 1<<2; //Start the clock for the timer peripheral
+    TIM4->PSC = 16000-1; //Setting the clock frequency to 1kHz.
+    TIM4->ARR = (delay); // Total period of the timer
+    TIM4->CNT = 0;
+    TIM4->CR1 |= 1; //Start the Timer
+    while(!(TIM4->SR & TIM_SR_UIF)){} //Polling the update interrupt flag
+    TIM4->SR &= ~(0x0001); //Reset the update interrupt flag
+}
 /* USER CODE END 0 */
 
 /**
   * @brief  The application entry point.
   * @retval int
   */
-
-int map(int st1, int fn1, int st2, int fn2, int value)
-  {
-      return (1.0*(value-st1))/((fn1-st1)*1.0) * (fn2-st2)+st2;
-  }
-  void servo_write(int angle)
-  {
-  	htim1.Instance->CCR1 = map(0,180,50,250,angle);
-  }
-  void servo_sweep(void)
-  {
-  		for(int i = 0; i <= 180; i++)
-  		{
-  			servo_write(i);
-  			HAL_Delay(10);
-  		}
-  		for(int i = 180; i >= 0; i--)
-  		{
-  			servo_write(i);
-  			HAL_Delay(10);
-  		}
-  }
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -110,22 +137,40 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM1_Init();
+  MX_ADC1_Init();
+  MX_TIM2_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-
+  RCC->CFGR |= 0<<10; // set APB1 = 16 MHz
+  GPIO_Init();
+  ADC1_Init();
+  TIM2_Init();
+  TIM2->CR1 |= 1;
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
 
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-
-
   while (1)
   {
+      //ADC1->CR2 |= ADC_CR2_SWSTART; //Starting ADC conversion
+      //while (!(ADC1->SR & ADC_SR_EOC)){}
+      //u = ADC1->DR;
+      //TIM2->CCR1 = (int)(((u/4095)*2000)+500);
+      //TIM4_ms_Delay(50);
+      HAL_ADC_Start(&hadc1);
+      if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+          uint16_t adc_value = HAL_ADC_GetValue(&hadc1);
+          uint16_t pwm_value = (adc_value * 2000) / 4095 + 500; // Scale ADC value to PWM range
+          __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value);
+      }
+      HAL_Delay(100); // Adjust the delay as needed
     /* USER CODE END WHILE */
-	  servo_sweep();
+
     /* USER CODE BEGIN 3 */
+
   }
   /* USER CODE END 3 */
 }
@@ -162,13 +207,65 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -185,8 +282,6 @@ static void MX_TIM1_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
   /* USER CODE BEGIN TIM1_Init 1 */
 
@@ -207,42 +302,119 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 50;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
-  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
-  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
-  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
-  sBreakDeadTimeConfig.DeadTime = 0;
-  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
-  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
-  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
-  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
-  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 160;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4065;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 50;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 16000;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 50000;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -253,23 +425,12 @@ static void MX_TIM1_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PD13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

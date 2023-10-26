@@ -1,0 +1,60 @@
+!SESSION 2023-10-25 18:48:33.459 -----------------------------------------------
+eclipse.buildId=Version 1.13.2
+java.version=17.0.6
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=uk_UA
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2023-10-25 18:48:54.701
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2023-10-25 18:48:54.708
+!MESSAGE Log4j2 initialized with config file D:\RoboArm\RobotArm_Project\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2023-10-25 18:48:59.605
+!MESSAGE Started RMI Server, listening on port 41337
+!SESSION 2023-10-25 18:49:17.560 -----------------------------------------------
+eclipse.buildId=Version 1.13.2
+java.version=17.0.6
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=uk_UA
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2023-10-25 18:49:39.377
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2023-10-25 18:49:39.378
+!MESSAGE Log4j2 initialized with config file D:\RoboArm\RobotArm_Project\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2023-10-25 18:49:42.913
+!MESSAGE Started RMI Server, listening on port 41337
+!SESSION 2023-10-25 18:50:06.051 -----------------------------------------------
+eclipse.buildId=Version 1.13.2
+java.version=17.0.6
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=uk_UA
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2023-10-25 18:50:25.347
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2023-10-25 18:50:25.348
+!MESSAGE Log4j2 initialized with config file D:\RoboArm\RobotArm_Project\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2023-10-25 18:50:31.489
+!MESSAGE Started RMI Server, listening on port 41337
+!SESSION 2023-10-25 18:56:23.155 -----------------------------------------------
+eclipse.buildId=Version 1.13.2
+java.version=17.0.6
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=uk_UA
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2023-10-25 18:56:35.611
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2023-10-25 18:56:35.612
+!MESSAGE Log4j2 initialized with config file D:\RoboArm\RobotArm_Project\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2023-10-25 18:56:39.124
+!MESSAGE Started RMI Server, listening on port 41338

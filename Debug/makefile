@@ -60,8 +60,8 @@ all: main-build
 main-build: RoboArm.elf secondary-outputs
 
 # Tool invocations
-RoboArm.elf RoboArm.map: $(OBJS) $(USER_OBJS) C:\Users\polis\STM32CubeIDE\workspace_1.13.2\RoboArm\STM32F411VETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "RoboArm.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\polis\STM32CubeIDE\workspace_1.13.2\RoboArm\STM32F411VETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="RoboArm.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+RoboArm.elf RoboArm.map: $(OBJS) $(USER_OBJS) D:\RoboArm\RobotArm_Project\STM32F411VETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "RoboArm.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\RoboArm\RobotArm_Project\STM32F411VETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="RoboArm.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
