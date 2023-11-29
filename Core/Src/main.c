@@ -50,9 +50,10 @@ TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 int u;
-int adc_channel_count = 2;
-uint8_t adc_conv_complete_flag = 0;
+
+volatile uint8_t adc_conv_complete_flag = 0;
 volatile uint16_t adc_dma_result[2];
+int adc_channel_count = sizeof(adc_dma_result)/sizeof(adc_dma_result[0]);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,8 +80,8 @@ void servo_sweep();
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
   /* Prevent unused argument(s) compilation warning */
-  UNUSED(hadc);
-  adc_conv_complete_flag = 1;
+	UNUSED(hadc);
+	adc_conv_complete_flag = 1;
   /* NOTE : This function Should not be modified, when the callback is needed,
             the HAL_ADC_ConvCpltCallback could be implemented in the user file
    */
@@ -223,13 +224,13 @@ int main(void)
 	  if (adc_conv_complete_flag==1){
       uint16_t adc_value_ch1 = adc_dma_result[0];
       uint16_t pwm_value_ch1 = (adc_value_ch1 * 2000) / 4095 + 500; // Scale ADC value to PWM range
+      HAL_Delay(10);
       uint16_t adc_value_ch2 = adc_dma_result[1];
       uint16_t pwm_value_ch2 = (adc_value_ch2 * 2000) / 4095 + 500; // Scale ADC value to PWM range
-      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value_ch1);
-      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, pwm_value_ch2);
+      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t)pwm_value_ch1);
+      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, (uint16_t)pwm_value_ch2);
       adc_conv_complete_flag=0;
 
-      HAL_Delay(10);
 	  }
 
       //HAL_ADC_Start(&hadc1);
