@@ -42,6 +42,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
@@ -49,11 +50,15 @@ TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 int u;
+int adc_channel_count = 2;
+uint8_t adc_conv_complete_flag = 0;
+volatile uint16_t adc_dma_result[2];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM2_Init(void);
@@ -63,19 +68,38 @@ void GPIO_Init(void);
 void ADC1_Init(void);
 void TIM2_Init(void);
 void TIM4_ms_Delay(uint32_t delay);
+int map(int, int, int, int, int);
+void servo_write(int);
+void servo_sweep();
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(hadc);
+  adc_conv_complete_flag = 1;
+  /* NOTE : This function Should not be modified, when the callback is needed,
+            the HAL_ADC_ConvCpltCallback could be implemented in the user file
+   */
+}
+
 void GPIO_Init(){
     //PC0 is connected to ADC1 IN10
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;// Enable GPIOC clock
     GPIOC->MODER |= GPIO_MODER_MODER0; // Set PC0 to Analog mode
+    GPIOC->MODER |= GPIO_MODER_MODER1; // Set PC1 to Analog mode
 
     RCC->AHB1ENR |= 1; //Enable GPIOA clock
     GPIOA->AFR[0] |= 0x00100000; // Select the PA5 pin in alternate function mode
     GPIOA->MODER |= 0x00000800; //Set the PA5 pin alternate function
+
+    GPIOA->AFR[0] |= 0x10000000;
+    GPIOA->MODER |= GPIO_MODER_MODER1_1;
+    //GPIOA->AFR[1] |= 0x00100000; //
+    //GPIOA->MODER |= 0x00000800;
 }
 void ADC1_Init(){
     RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;//Enable ADC clock
@@ -86,26 +110,58 @@ void ADC1_Init(){
     ADC1->CR2 &= ~ADC_CR2_ALIGN; //setting the alignment to the right
     ADC1->CR1 &= ~ADC_CR1_RES; // Selecting 12-bit resolution
     ADC1->SMPR1 |= (ADC_SMPR2_SMP0_0 | ADC_SMPR2_SMP0_2); // 112 Sampling cycle selection
-    ADC1->SQR3 |= 10<<0; // Selecting channel 10
+    ADC1->SMPR2 |= (ADC_SMPR2_SMP1_0 | ADC_SMPR2_SMP1_2); // 112 Sampling cycle selection
+    ADC1->SQR3 |= (10<<0)|(11<<5);
+
 }
 void TIM2_Init(){
     RCC->APB1ENR |=1;
     TIM2->PSC = 16-1; //Setting the clock frequency to 1MHz.
     TIM2->ARR = 20000; // Total period of the timer
     TIM2->CNT = 0;
-    TIM2->CCMR1 = 0x0060; //PWM mode for the timer
-    TIM2->CCER |= 1; //Enable channel 1 as output
-    TIM2->CCR1 = 5000; // Pulse width for PWM
+    //TIM2->CCMR1 = 0x0060; //PWM mode for the timer
+    // Configure TIM2 CH1 for PWM mode
+    TIM2->CCMR1 |= TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1; // PWM mode for CH1
+    TIM2->CCER |= TIM_CCER_CC1E; // Enable channel 1 as output
+
+    TIM2->CCMR1 |= TIM_CCMR1_OC2M_2 | TIM_CCMR1_OC2M_1; // PWM mode for CH2
+    TIM2->CCER |= TIM_CCER_CC2E; // Enable channel 2 as output
+    //TIM2->CCR1 = 500; // Pulse width for PWM
+    TIM2->CCR1 = 500; // Pulse width for PWM
+    TIM2->CCR2 = 500;
 }
-void TIM4_ms_Delay(uint32_t delay){
-    RCC->APB1ENR |= 1<<2; //Start the clock for the timer peripheral
-    TIM4->PSC = 16000-1; //Setting the clock frequency to 1kHz.
-    TIM4->ARR = (delay); // Total period of the timer
-    TIM4->CNT = 0;
-    TIM4->CR1 |= 1; //Start the Timer
-    while(!(TIM4->SR & TIM_SR_UIF)){} //Polling the update interrupt flag
-    TIM4->SR &= ~(0x0001); //Reset the update interrupt flag
-}
+//int map(int st1, int fn1, int st2, int fn2, int value)
+//{
+//    return (1.0*(value-st1))/((fn1-st1)*1.0) * (fn2-st2)+st2;
+//}
+
+//void servo_write(int angle)
+//{
+//	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, map(0,180,50,250,angle));
+//}
+
+//void servo_sweep(void)
+//{
+//		for(int i = 0; i <= 180; i++)
+//		{
+//			servo_write(i);
+//			HAL_Delay(10);
+//		}
+//		for(int i = 180; i >= 0; i--)
+//		{
+//			servo_write(i);
+//			HAL_Delay(10);
+//		}
+//}
+//void TIM4_ms_Delay(uint32_t delay){
+//    RCC->APB1ENR |= 1<<2; //Start the clock for the timer peripheral
+//    TIM4->PSC = 16000-1; //Setting the clock frequency to 1kHz.
+//    TIM4->ARR = (delay); // Total period of the timer
+//    TIM4->CNT = 0;
+//    TIM4->CR1 |= 1; //Start the Timer
+//    while(!(TIM4->SR & TIM_SR_UIF)){} //Polling the update interrupt flag
+//    TIM4->SR &= ~(0x0001); //Reset the update interrupt flag
+//}
 /* USER CODE END 0 */
 
 /**
@@ -136,6 +192,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   MX_ADC1_Init();
   MX_TIM2_Init();
@@ -146,7 +203,10 @@ int main(void)
   ADC1_Init();
   TIM2_Init();
   TIM2->CR1 |= 1;
+  TIM2->CR2 |= 2;
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_dma_result, adc_channel_count);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -160,13 +220,39 @@ int main(void)
       //u = ADC1->DR;
       //TIM2->CCR1 = (int)(((u/4095)*2000)+500);
       //TIM4_ms_Delay(50);
-      HAL_ADC_Start(&hadc1);
-      if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
-          uint16_t adc_value = HAL_ADC_GetValue(&hadc1);
-          uint16_t pwm_value = (adc_value * 2000) / 4095 + 500; // Scale ADC value to PWM range
-          __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value);
-      }
-      HAL_Delay(100); // Adjust the delay as needed
+	  if (adc_conv_complete_flag==1){
+      uint16_t adc_value_ch1 = adc_dma_result[0];
+      uint16_t pwm_value_ch1 = (adc_value_ch1 * 2000) / 4095 + 500; // Scale ADC value to PWM range
+      uint16_t adc_value_ch2 = adc_dma_result[1];
+      uint16_t pwm_value_ch2 = (adc_value_ch2 * 2000) / 4095 + 500; // Scale ADC value to PWM range
+      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm_value_ch1);
+      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, pwm_value_ch2);
+      adc_conv_complete_flag=0;
+
+      HAL_Delay(10);
+	  }
+
+      //HAL_ADC_Start(&hadc1);
+
+      //if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+          //uint16_t adc_value = HAL_ADC_GetValue(&hadc1);
+          //uint16_t pwm_value = (adc_value * 2000)/4095+500; // Scale ADC value to PWM range
+          //__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, pwm_value);
+      //}
+      //HAL_Delay(100); // Adjust the delay as needed
+
+	  //for (int i = 0; i<= 2500; i++){s
+	  //__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, i);
+	  ////  HAL_Delay(1); // Adjust the delay as needed
+	  //}
+	  //servo_write(0);
+      //__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 2500);
+      //servo_write(200);
+      //HAL_Delay(100);
+	  //servo_sweep();
+
+      // when adc_conv_complete_flag is set to 1,
+      // that means DMA conversion is completed
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -239,14 +325,14 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ENABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -255,9 +341,18 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_112CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -366,6 +461,10 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
@@ -419,6 +518,22 @@ static void MX_TIM4_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -429,6 +544,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
