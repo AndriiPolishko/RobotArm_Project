@@ -52,7 +52,7 @@ TIM_HandleTypeDef htim4;
 int u;
 
 volatile uint8_t adc_conv_complete_flag = 0;
-volatile uint16_t adc_dma_result[2];
+volatile uint16_t adc_dma_result[5];
 int adc_channel_count = sizeof(adc_dma_result)/sizeof(adc_dma_result[0]);
 /* USER CODE END PV */
 
@@ -92,15 +92,26 @@ void GPIO_Init(){
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;// Enable GPIOC clock
     GPIOC->MODER |= GPIO_MODER_MODER0; // Set PC0 to Analog mode
     GPIOC->MODER |= GPIO_MODER_MODER1; // Set PC1 to Analog mode
+    GPIOC->MODER |= GPIO_MODER_MODER2; // Set PC2 to Analog mode
+    GPIOC->MODER |= GPIO_MODER_MODER3; // Set PC3 to Analog mode
+
 
     RCC->AHB1ENR |= 1; //Enable GPIOA clock
     GPIOA->AFR[0] |= 0x00100000; // Select the PA5 pin in alternate function mode
     GPIOA->MODER |= 0x00000800; //Set the PA5 pin alternate function
 
-    GPIOA->AFR[0] |= 0x10000000;
+    GPIOA->AFR[0] |= 0x10000000;// Select the PA1 pin in alternate function mode
     GPIOA->MODER |= GPIO_MODER_MODER1_1;
     //GPIOA->AFR[1] |= 0x00100000; //
     //GPIOA->MODER |= 0x00000800;
+    GPIOA->AFR[0] |= 0x01000000; // Select the PA2 pin in alternate function mode
+    GPIOA->MODER |= GPIO_MODER_MODER2_1;
+
+    GPIOA->AFR[0] |= 0x11000000; // Select the PA3 pin in alternate function mode
+    GPIOA->MODER |= GPIO_MODER_MODER3_1;
+
+    GPIOA->AFR[1] |= 0x01000000; // Select AF1 (TIM1) for pin A8
+    GPIOA->MODER |= GPIO_MODER_MODER8_1; // Set A8 to Alternate Function mode
 }
 void ADC1_Init(){
     RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;//Enable ADC clock
@@ -110,9 +121,12 @@ void ADC1_Init(){
     ADC1->CR2 |= ADC_CR2_ADON; // Enabling the ADC
     ADC1->CR2 &= ~ADC_CR2_ALIGN; //setting the alignment to the right
     ADC1->CR1 &= ~ADC_CR1_RES; // Selecting 12-bit resolution
-    ADC1->SMPR1 |= (ADC_SMPR2_SMP0_0 | ADC_SMPR2_SMP0_2); // 112 Sampling cycle selection
-    ADC1->SMPR2 |= (ADC_SMPR2_SMP1_0 | ADC_SMPR2_SMP1_2); // 112 Sampling cycle selection
-    ADC1->SQR3 |= (10<<0)|(11<<5);
+    ADC1->SMPR1 |= (ADC_SMPR1_SMP10_0 | ADC_SMPR1_SMP10_2); // 112 Sampling cycle selection
+    ADC1->SMPR1 |= (ADC_SMPR1_SMP11_0 | ADC_SMPR1_SMP11_2); // 112 Sampling cycle selection
+    ADC1->SMPR1 |= (ADC_SMPR1_SMP12_0 | ADC_SMPR1_SMP12_2); // 112 Sampling cycle selection
+    ADC1->SMPR1 |= (ADC_SMPR1_SMP13_0 | ADC_SMPR1_SMP13_2); // 112 Sampling cycle selection
+    ADC1->SMPR1 |= (ADC_SMPR1_SMP14_0 | ADC_SMPR1_SMP14_2); // 112 Sampling cycle selection
+    ADC1->SQR3 |= (10<<0)|(11<<5)|(12<<10)|(13<<15)|(14<<20);
 
 }
 void TIM2_Init(){
@@ -128,9 +142,35 @@ void TIM2_Init(){
     TIM2->CCMR1 |= TIM_CCMR1_OC2M_2 | TIM_CCMR1_OC2M_1; // PWM mode for CH2
     TIM2->CCER |= TIM_CCER_CC2E; // Enable channel 2 as output
     //TIM2->CCR1 = 500; // Pulse width for PWM
+    TIM2->CCMR2 |= TIM_CCMR2_OC3M_2 | TIM_CCMR2_OC3M_1; // PWM mode for CH2
+    TIM2->CCER |= TIM_CCER_CC3E; // Enable channel 3 as output
+
+    TIM2->CCMR2 |= TIM_CCMR2_OC4M_2 | TIM_CCMR2_OC4M_1; // PWM mode for CH2
+    TIM2->CCER |= TIM_CCER_CC4E; // Enable channel 4 as output
+
     TIM2->CCR1 = 500; // Pulse width for PWM
     TIM2->CCR2 = 500;
+    TIM2->CCR3 = 500;
+    TIM2->CCR4 = 500;
 }
+void TIM1_Init() {
+    RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; // Enable TIM1 clock
+    TIM1->PSC = 16 - 1; // Setting the clock frequency to 1MHz.
+    TIM1->ARR = 20000; // Total period of the timer
+    TIM1->CNT = 0;
+
+    // Configure TIM1 CH1 for PWM mode
+    TIM1->CCMR1 |= TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1; // PWM mode for CH1
+    TIM1->CCER |= TIM_CCER_CC1E; // Enable channel 1 as output
+
+    // Configure the corresponding GPIO pin (A8) in alternate function mode
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; // Enable GPIOA clock
+    GPIOA->MODER |= GPIO_MODER_MODER8_1; // Set A8 to Alternate Function mode
+    GPIOA->AFR[1] |= 0x01000000; // Select AF1 (TIM1) for pin A8
+
+    TIM1->CCR1 = 500;
+}
+
 //int map(int st1, int fn1, int st2, int fn2, int value)
 //{
 //    return (1.0*(value-st1))/((fn1-st1)*1.0) * (fn2-st2)+st2;
@@ -204,9 +244,10 @@ int main(void)
   ADC1_Init();
   TIM2_Init();
   TIM2->CR1 |= 1;
-  TIM2->CR2 |= 2;
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_dma_result, adc_channel_count);
   /* USER CODE END 2 */
 
@@ -224,14 +265,27 @@ int main(void)
 	  if (adc_conv_complete_flag==1){
       uint16_t adc_value_ch1 = adc_dma_result[0];
       uint16_t pwm_value_ch1 = (adc_value_ch1 * 2000) / 4095 + 500; // Scale ADC value to PWM range
-      HAL_Delay(10);
+
       uint16_t adc_value_ch2 = adc_dma_result[1];
       uint16_t pwm_value_ch2 = (adc_value_ch2 * 2000) / 4095 + 500; // Scale ADC value to PWM range
+
+      uint16_t adc_value_ch3 = adc_dma_result[2];
+      uint16_t pwm_value_ch3 = (adc_value_ch3 * 2000) / 4095 + 500; // Scale ADC value to PWM range
+
+      uint16_t adc_value_ch4 = adc_dma_result[3];
+      uint16_t pwm_value_ch4 = (adc_value_ch4 * 2000) / 4095 + 500; // Scale ADC value to PWM range
+
+      uint16_t adc_value_ch5 = adc_dma_result[4];
+      uint16_t pwm_value_ch5 = (adc_value_ch5 * 2000) / 4095 + 500; // Scale ADC value to PWM range
+
       __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t)pwm_value_ch1);
       __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, (uint16_t)pwm_value_ch2);
+      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, (uint16_t)pwm_value_ch3);
+      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t)pwm_value_ch4);
+      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t)pwm_value_ch5);
       adc_conv_complete_flag=0;
-
 	  }
+      HAL_Delay(10);
 
       //HAL_ADC_Start(&hadc1);
 
@@ -332,7 +386,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.NbrOfConversion = 5;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -358,6 +412,33 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Rank = 3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_13;
+  sConfig.Rank = 4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_14;
+  sConfig.Rank = 5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
@@ -378,6 +459,8 @@ static void MX_TIM1_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
   /* USER CODE BEGIN TIM1_Init 1 */
 
@@ -385,7 +468,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 160;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 2000;
+  htim1.Init.Period = 4065;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -398,15 +481,42 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 50;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
 
 }
 
@@ -463,6 +573,14 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
