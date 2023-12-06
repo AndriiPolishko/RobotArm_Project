@@ -248,6 +248,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  //changed added timer1 pwm start
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_dma_result, adc_channel_count);
   /* USER CODE END 2 */
 
@@ -282,7 +284,8 @@ int main(void)
       __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, (uint16_t)pwm_value_ch2);
       __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, (uint16_t)pwm_value_ch3);
       __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t)pwm_value_ch4);
-      __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t)pwm_value_ch5);
+      //changed to tim1 ch1
+      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, (uint16_t)pwm_value_ch5);
       adc_conv_complete_flag=0;
 	  }
       HAL_Delay(10);
